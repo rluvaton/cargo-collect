@@ -228,12 +228,13 @@ fn progress_bar(size: usize) -> ProgressBar {
 }
 
 async fn download_packages(
-    client: &Client,
-    user_agent: &HeaderValue,
     packages: HashSet<Package>,
 ) -> Result<()> {
     info!("Downloading {} crates", packages.len());
+    let client = Client::new();
+    let user_agent = HeaderValue::from_str(&format!("CargoCollect/{}", env!("CARGO_PKG_VERSION")))?;
     let pb = progress_bar(packages.len());
+
     let tasks = futures::stream::iter(packages.into_iter())
         .map(|pkg| {
             let pb = pb.clone();
@@ -308,6 +309,8 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
     let index = Index::new_cargo_default()?;
 
+    // Take the version requirement from args if exists,
+    // otherwise define the highest normal version as the version req.
     let version_req = if let Some(version_req) = args.crate_version_req {
         version_req
     } else {
@@ -321,6 +324,7 @@ async fn main() -> Result<()> {
             .to_owned()
     };
 
+    // Collect the dependencies recursively.
     let packages = collect_packages(
         &index,
         args.crate_name.to_owned(),
@@ -330,8 +334,6 @@ async fn main() -> Result<()> {
     .await?;
 
     // Download all crates in parallel.
-    let client = Client::new();
-    let user_agent = HeaderValue::from_str(&format!("CargoCollect/{}", env!("CARGO_PKG_VERSION")))?;
-    download_packages(&client, &user_agent, packages).await?;
+    download_packages(packages).await?;
     Ok(())
 }
