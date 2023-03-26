@@ -26,5 +26,6 @@ $ cargo collect foo --output /path/to/optput/folder
 For more detailed usage instructions, run `cargo collect --help`.
 
 ## License
-cargo-collect is licensed under the terms of the MIT license.
+cargo-collect is licensed under the terms of the GNU GENERAL PUBLIC LICENSE Version 3
+
 
