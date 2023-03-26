@@ -7,6 +7,7 @@ use reqwest::header::{HeaderValue, USER_AGENT};
 use reqwest::Client;
 use semver::{Version as SemVersion, VersionReq};
 use sha2::{Digest, Sha256};
+use tokio::fs::create_dir_all;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -26,7 +27,7 @@ struct Cli {
     #[arg(short = 'v', long)]
     crate_version_req: Option<String>,
     /// The output folder to put all crate files.
-    #[arg(short = 'o', long)]
+    #[arg(short = 'o', long, default_value = "deps")]
     output: PathBuf,
 }
 
@@ -73,6 +74,7 @@ async fn download_crate(
         .header(USER_AGENT, user_agent)
         .send()
         .await?;
+    create_dir_all(path.parent().unwrap()).await?;
     let part_path = append_to_path(path, ".part");
 
     let mut hasher = Sha256::new();
