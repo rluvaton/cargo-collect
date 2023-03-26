@@ -1,0 +1,21 @@
+[package]
+name = "cargo-collect"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crates-index = "0.19"
+clap = { version = "4.1", features = ["derive"] }
+semver = "1.0"
+tokio = { version = "1.26", features = ["full"] }
+anyhow = "1.0"
+itertools = "0.10"
+env_logger = "0.10"
+tracing = {version = "0.1", default-features = false, features = ["std"]}
+tracing-subscriber = {version = "0.3", default-features = false, features = ["ansi", "env-filter", "fmt"]}
+async-recursion = "1.0"
+reqwest = "0.11"
+sha2 = "0.10"
+futures = "0.3"
