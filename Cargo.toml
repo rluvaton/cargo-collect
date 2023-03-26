@@ -2,6 +2,12 @@
 name = "cargo-collect"
 version = "0.1.0"
 edition = "2021"
+repository = "https://gitlab.com/TalRoni/cargo-collect"
+homepage = "https://gitlab.com/TalRoni/cargo-collect"
+description = "Cargo tool for download crate file and its dependencies recursively."
+authors = ["Tal Y Roni <tal.inon.16@gmail.com>"]
+readme = "README.md"
+license = "GPL-3.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,7 +21,6 @@ itertools = "0.10"
 env_logger = "0.10"
 tracing = {version = "0.1", default-features = false, features = ["std"]}
 tracing-subscriber = {version = "0.3", default-features = false, features = ["ansi", "env-filter", "fmt"]}
-async-recursion = "1.0"
 reqwest = "0.11"
 sha2 = "0.10"
 futures = "0.3"
