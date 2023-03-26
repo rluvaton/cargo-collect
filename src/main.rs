@@ -227,9 +227,7 @@ fn progress_bar(size: usize) -> ProgressBar {
         .with_finish(ProgressFinish::AndLeave)
 }
 
-async fn download_packages(
-    packages: HashSet<Package>,
-) -> Result<()> {
+async fn download_packages(packages: HashSet<Package>) -> Result<()> {
     info!("Downloading {} crates", packages.len());
     let client = Client::new();
     let user_agent = HeaderValue::from_str(&format!("CargoCollect/{}", env!("CARGO_PKG_VERSION")))?;
@@ -306,7 +304,18 @@ async fn main() -> Result<()> {
     let subscriber = FmtSubscriber::builder().with_timer(SystemTime).finish();
     set_global_subscriber(subscriber).context("failed to set tracing subscriber")?;
 
-    let args = Cli::parse();
+    // Skip collect subcommand keyword for using with cargo.
+    let args = std::env::args().collect_vec();
+    let args = if args
+        .get(1)
+        .and_then(|a| Some(a == "collect"))
+        .unwrap_or(false)
+    {
+        Cli::parse_from(&args[1..])
+    } else {
+        Cli::parse()
+    };
+
     let index = Index::new_cargo_default()?;
 
     // Take the version requirement from args if exists,
