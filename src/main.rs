@@ -210,6 +210,25 @@ async fn download_packages(
     Ok(())
 }
 
+async fn collect_packages(index: &Index, crate_name: &str, crate_version_req: &str) -> Result<HashSet<Package>> {
+    // Collect all dependencies recursively.
+    let mut worklist = vec![(args.crate_name, version_req)];
+    let mut packages = HashSet::new();
+    info!("Collect dependencies recursively.");
+    while let Some((crate_name, crate_version_req)) = worklist.pop() {
+        let deps = find_highest_requirement_version(
+            &index,
+            &mut packages,
+            &args.output,
+            &crate_name,
+            &crate_version_req,
+        )
+        .await?;
+        worklist.extend(deps);
+    }
+    Ok(packages)
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     if std::env::var("RUST_LOG").is_err() {
@@ -229,21 +248,7 @@ async fn main() -> Result<()> {
         krate.highest_normal_version().unwrap_or(krate.highest_version()).version().to_owned()
     };
 
-    // Collect all dependencies recursively.
-    let mut worklist = vec![(args.crate_name, version_req)];
-    let mut packages = HashSet::new();
-    info!("Collect dependencies recursively.");
-    while let Some((crate_name, crate_version_req)) = worklist.pop() {
-        let deps = find_highest_requirement_version(
-            &index,
-            &mut packages,
-            &args.output,
-            &crate_name,
-            &crate_version_req,
-        )
-        .await?;
-        worklist.extend(deps);
-    }
+    let packages = collect_packages(&index, &args.crate_name, &version_req).await?;
 
     // Download all crates in parallel.
     let client = Client::new();
