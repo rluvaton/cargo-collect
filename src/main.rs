@@ -1,17 +1,18 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use crates_index::Index;
+use crates_index::{Index, IndexConfig};
 use futures::StreamExt;
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressFinish, ProgressStyle};
 use itertools::Itertools;
 use reqwest::header::{HeaderValue, USER_AGENT};
 use reqwest::Client;
 use semver::{Version as SemVersion, VersionReq};
 use sha2::{Digest, Sha256};
-use tokio::fs::create_dir_all;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use tokio::fs::create_dir_all;
 use tracing::subscriber::set_global_default as set_global_subscriber;
 use tracing::{info, warn};
 use tracing_subscriber::fmt::time::SystemTime;
@@ -67,8 +68,12 @@ async fn download_crate(
     path: &Path,
     hash: &[u8],
     user_agent: &HeaderValue,
+    pb: &ProgressBar,
 ) -> Result<()> {
-    info!("Downloading {}", url);
+    pb.set_message(format!(
+        "Downloading {}",
+        path.file_name().unwrap().to_str().unwrap()
+    ));
     let mut http_res = client
         .get(url)
         .header(USER_AGENT, user_agent)
@@ -123,42 +128,49 @@ async fn download_crate(
 
 async fn find_highest_requirement_version(
     index: &Index,
+    index_config: &IndexConfig,
     packages: &mut HashSet<Package>,
     folder_path: &Path,
     crate_name: &str,
     crate_version_req: &str,
+    pb: &ProgressBar,
 ) -> Result<Vec<(String, String)>> {
+    pb.set_message(crate_name.to_owned());
     let krate = index
         .crate_(crate_name)
         .ok_or_else(|| anyhow!("Crate not found"))?;
     let version_req = VersionReq::parse(crate_version_req)?;
-    let version = krate
+    let versions = krate
         .versions()
-        .into_iter()
+        .iter()
         .filter_map(|version| {
-            if version.is_yanked() {
-                None
+            let semversion = SemVersion::parse(version.version()).unwrap_or_else(|e| {
+                warn!(
+                    "Skipped, Can't parse the crate version: {}-{}, {e}",
+                    crate_name,
+                    version.version()
+                );
+                SemVersion::new(0, 0, 0)
+            });
+            if version_req.matches(&semversion) {
+                Some((version, semversion))
             } else {
-                Some((
-                    version.clone(),
-                    SemVersion::parse(version.version()).unwrap_or_else(|e| {
-                        warn!(
-                            "Skipped, Can't parse the crate version: {}-{}, {e}",
-                            crate_name,
-                            version.version()
-                        );
-                        SemVersion::new(0, 0, 0)
-                    }),
-                ))
+                None
             }
         })
-        .rev()
         .sorted_unstable_by_key(|(_, semversion)| semversion.clone())
-        .find(|(_, semversion)| version_req.matches(semversion));
+        .rev()
+        .collect_vec();
+
+    // Take the highest matched version that not yanked if it's exists. otherwise take the highest yanked version.
+    let version = versions
+        .iter()
+        .find(|(v, _)| !v.is_yanked())
+        .or(versions.get(0));
 
     if let Some((version, _)) = version {
         let url = version
-            .download_url(&index.index_config()?)
+            .download_url(index_config)
             .ok_or_else(|| anyhow!("Can't generate download url for crate: {}", crate_name))?;
         let pkg = Package::new(
             folder_path.join(format!("{}-{}.crate", crate_name, version.version())),
@@ -168,6 +180,7 @@ async fn find_highest_requirement_version(
 
         // If the package already processed skip thier dependencies.
         if packages.insert(pkg) {
+            pb.inc(1);
             Ok(version
                 .dependencies()
                 .into_iter()
@@ -178,10 +191,40 @@ async fn find_highest_requirement_version(
         }
     } else {
         Err(anyhow!(
-            "Relevant version for crate {} not found",
-            crate_name
+            "Relevant version for crate {} was not found. version_req: {}, versions: {:?}",
+            crate_name,
+            version_req,
+            krate
+                .versions()
+                .iter()
+                .filter(|v| !v.is_yanked())
+                .map(|v| {
+                    let semv = SemVersion::parse(v.version()).unwrap();
+                    format!("{}: {}", v.version(), version_req.matches(&semv))
+                })
+                .collect_vec()
         ))
     }
+}
+
+fn progress_spinner() -> Result<ProgressBar> {
+    Ok(
+        ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr()).with_style(
+            ProgressStyle::with_template("{spinner:.green} {pos} - {msg}")?,
+        ),
+    )
+}
+
+fn progress_bar(size: usize) -> ProgressBar {
+    ProgressBar::new(size as u64)
+        .with_style(
+            ProgressStyle::with_template(
+                "{spinner:.green} {msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})",
+                )
+                .expect("template is correct")
+                .progress_chars("#>-"),
+        )
+        .with_finish(ProgressFinish::AndLeave)
 }
 
 async fn download_packages(
@@ -189,12 +232,25 @@ async fn download_packages(
     user_agent: &HeaderValue,
     packages: HashSet<Package>,
 ) -> Result<()> {
+    info!("Downloading {} crates", packages.len());
+    let pb = progress_bar(packages.len());
     let tasks = futures::stream::iter(packages.into_iter())
         .map(|pkg| {
+            let pb = pb.clone();
             let client = client.clone();
             let user_agent = user_agent.clone();
             tokio::spawn(async move {
-                download_crate(&client, &pkg.url, &pkg.path, &pkg.checksum, &user_agent).await
+                download_crate(
+                    &client,
+                    &pkg.url,
+                    &pkg.path,
+                    &pkg.checksum,
+                    &user_agent,
+                    &pb,
+                )
+                .await?;
+                pb.inc(1);
+                Ok::<_, anyhow::Error>(())
             })
         })
         .buffer_unordered(16)
@@ -212,18 +268,27 @@ async fn download_packages(
     Ok(())
 }
 
-async fn collect_packages(index: &Index, crate_name: String, crate_version_req: String, output: &Path) -> Result<HashSet<Package>> {
+async fn collect_packages(
+    index: &Index,
+    crate_name: String,
+    crate_version_req: String,
+    output: &Path,
+) -> Result<HashSet<Package>> {
     // Collect all dependencies recursively.
     let mut worklist = vec![(crate_name, crate_version_req)];
     let mut packages = HashSet::new();
-    info!("Collect dependencies recursively.");
+    let index_config = index.index_config()?;
+    let pb = progress_spinner()?;
+    info!("Collect dependencies recursively...");
     while let Some((crate_name, crate_version_req)) = worklist.pop() {
         let deps = find_highest_requirement_version(
             &index,
+            &index_config,
             &mut packages,
             output,
             &crate_name,
             &crate_version_req,
+            &pb,
         )
         .await?;
         worklist.extend(deps);
@@ -246,11 +311,23 @@ async fn main() -> Result<()> {
     let version_req = if let Some(version_req) = args.crate_version_req {
         version_req
     } else {
-        let krate = index.crate_(&args.crate_name).ok_or_else(|| anyhow!("Crate not found"))?;
-        krate.highest_normal_version().unwrap_or(krate.highest_version()).version().to_owned()
+        let krate = index
+            .crate_(&args.crate_name)
+            .ok_or_else(|| anyhow!("Crate not found"))?;
+        krate
+            .highest_normal_version()
+            .unwrap_or(krate.highest_version())
+            .version()
+            .to_owned()
     };
 
-    let packages = collect_packages(&index, args.crate_name.to_owned(), version_req, &args.output).await?;
+    let packages = collect_packages(
+        &index,
+        args.crate_name.to_owned(),
+        version_req,
+        &args.output,
+    )
+    .await?;
 
     // Download all crates in parallel.
     let client = Client::new();
