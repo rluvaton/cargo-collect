@@ -1,23 +1,3 @@
-// use std::collections::{HashMap, HashSet};
-// use std::fs::OpenOptions;
-// use std::io::Write;
-// use std::path::{Path, PathBuf};
-//
-// use clap::Parser;
-// use crates_index::{Index, IndexConfig};
-// use futures::StreamExt;
-// use indicatif::{ProgressBar, ProgressDrawTarget, ProgressFinish, ProgressStyle};
-// use itertools::Itertools;
-// use reqwest::Client;
-// use reqwest::header::{HeaderValue, USER_AGENT};
-// use semver::{Version as SemVersion, VersionReq};
-// use sha2::{Digest, Sha256};
-// use tokio::fs::create_dir_all;
-// use tracing::{info, warn};
-// use tracing::subscriber::set_global_default as set_global_subscriber;
-// use tracing_subscriber::fmt::time::SystemTime;
-// use tracing_subscriber::FmtSubscriber;
-
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow,  Result};
