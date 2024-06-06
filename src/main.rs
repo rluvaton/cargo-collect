@@ -1,6 +1,7 @@
 mod cli;
 mod collect_packages;
 mod download_packages;
+mod spinners;
 
 
 use anyhow::{anyhow, Result};

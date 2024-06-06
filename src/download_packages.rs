@@ -31,6 +31,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use tracing::{info, warn};
 use crate::collect_packages::{Package};
+use crate::spinners::progress_bar;
 
 fn append_to_path(path: &Path, suffix: &str) -> PathBuf {
     let mut path = path.to_path_buf();
@@ -150,14 +151,3 @@ pub async fn download_packages(packages: HashSet<Package>) -> Result<()> {
 }
 
 
-fn progress_bar(size: usize) -> ProgressBar {
-    ProgressBar::new(size as u64)
-        .with_style(
-            ProgressStyle::with_template(
-                "{spinner:.green} {msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})",
-            )
-                .expect("template is correct")
-                .progress_chars("#>-"),
-        )
-        .with_finish(ProgressFinish::AndLeave)
-}

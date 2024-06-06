@@ -27,6 +27,7 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use itertools::Itertools;
 use tracing::{info, warn};
 use semver::{Version as SemVersion, VersionReq};
+use crate::spinners::progress_spinner;
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub struct Package {
@@ -131,14 +132,6 @@ async fn find_highest_requirement_version(
                 .collect_vec()
         ))
     }
-}
-
-fn progress_spinner() -> Result<ProgressBar> {
-    Ok(
-        ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr()).with_style(
-            ProgressStyle::with_template("{spinner:.green} {pos} - {msg}")?,
-        ),
-    )
 }
 
 pub async fn collect_packages(
