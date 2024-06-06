@@ -44,8 +44,6 @@ async fn run(args: Cli) -> Result<()> {
     Ok(())
 }
 
-
-
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     let args = cli::get_options();

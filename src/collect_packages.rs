@@ -1,4 +1,3 @@
-
 use anyhow::{anyhow, Result};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -12,8 +11,8 @@ use crate::spinners::progress_spinner;
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub struct Package {
     pub(crate) path: PathBuf,
-    pub(crate)url: String,
-    pub(crate)checksum: Vec<u8>,
+    pub(crate) url: String,
+    pub(crate) checksum: Vec<u8>,
 }
 
 impl Package {
@@ -166,8 +165,6 @@ pub async fn collect_packages(
             versions.insert(version);
             already_downloaded.insert(crate_name, versions);
         }
-
-
     }
     Ok(packages)
 }
@@ -189,7 +186,7 @@ fn is_version_match_the_range(version: String, range: String) -> bool {
         SemVersion::new(0, 0, 0)
     });
 
-    return version_req.matches(&semversion)
+    return version_req.matches(&semversion);
 }
 
 fn create_file_name_from_crate_name_and_version(crate_name: String, version: String) -> String {
@@ -240,8 +237,7 @@ fn build_hashset_from_local_deps(folder_with_already_download: String) -> HashMa
                 return None;
             }
 
-            return parse_crate_name_and_version_from_file_name(file_name.as_str())
-
+            return parse_crate_name_and_version_from_file_name(file_name.as_str());
         })
 
         .for_each(|(crate_name, version)| {
