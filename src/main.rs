@@ -8,7 +8,7 @@ use reqwest::header::{HeaderValue, USER_AGENT};
 use reqwest::Client;
 use semver::{Version as SemVersion, VersionReq};
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -134,11 +134,18 @@ async fn find_highest_requirement_version(
     crate_name: &str,
     crate_version_req: &str,
     pb: &ProgressBar,
-) -> Result<Vec<(String, String)>> {
+) -> Result<(Option<String>, Vec<(String, String)>)> {
     pb.set_message(crate_name.to_owned());
     let krate = index
-        .crate_(crate_name)
-        .ok_or_else(|| anyhow!("Crate not found"))?;
+        .crate_(crate_name);
+
+    if krate.is_none() {
+        warn!("Crate {} not found, skipping", crate_name);
+        return Ok((None, vec![]));
+    }
+
+    let krate = krate.unwrap();
+
     let version_req = VersionReq::parse(crate_version_req)?;
     let versions = krate
         .versions()
@@ -181,13 +188,13 @@ async fn find_highest_requirement_version(
         // If the package already processed skip thier dependencies.
         if packages.insert(pkg) {
             pb.inc(1);
-            Ok(version
+            Ok((Some(version.version().to_string()), version
                 .dependencies()
                 .into_iter()
                 .map(|dep| (dep.crate_name().to_owned(), dep.requirement().to_owned()))
-                .collect_vec())
+                .collect_vec()))
         } else {
-            Ok(vec![])
+            Ok((None, vec![]))
         }
     } else {
         Err(anyhow!(
@@ -220,7 +227,7 @@ fn progress_bar(size: usize) -> ProgressBar {
         .with_style(
             ProgressStyle::with_template(
                 "{spinner:.green} {msg} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})",
-                )
+            )
                 .expect("template is correct")
                 .progress_chars("#>-"),
         )
@@ -247,7 +254,7 @@ async fn download_packages(packages: HashSet<Package>) -> Result<()> {
                     &user_agent,
                     &pb,
                 )
-                .await?;
+                    .await?;
                 pb.inc(1);
                 Ok::<_, anyhow::Error>(())
             })
@@ -279,8 +286,18 @@ async fn collect_packages(
     let index_config = index.index_config()?;
     let pb = progress_spinner()?;
     info!("Collect dependencies recursively...");
+
+    let mut already_downloaded = build_hashset_from_local_deps(output.to_str().unwrap().to_string());
     while let Some((crate_name, crate_version_req)) = worklist.pop() {
-        let deps = find_highest_requirement_version(
+        if (already_downloaded.contains_key(&crate_name)) {
+            let versions = already_downloaded.get(&crate_name).unwrap();
+            let matched = versions.iter().find(|v| is_version_match_the_range(v.as_str().to_string(), crate_version_req.clone()));
+            if matched.is_some() {
+                continue;
+            }
+        }
+
+        let (version, deps) = find_highest_requirement_version(
             &index,
             &index_config,
             &mut packages,
@@ -289,10 +306,136 @@ async fn collect_packages(
             &crate_version_req,
             &pb,
         )
-        .await?;
+            .await?;
+
         worklist.extend(deps);
+
+        if version.is_none() {
+            continue;
+        }
+
+        let version = version.unwrap();
+
+        if already_downloaded.contains_key(&crate_name) {
+            let mut versions = already_downloaded.get_mut(&crate_name).unwrap();
+            if !versions.contains(&version) {
+                versions.insert(version);
+            }
+        } else {
+            let mut versions = HashSet::new();
+            versions.insert(version);
+            already_downloaded.insert(crate_name, versions);
+        }
+
+
     }
     Ok(packages)
+}
+
+fn is_version_match_the_range(version: String, range: String) -> bool {
+    let version_req = VersionReq::parse(range.as_str());
+
+    if version_req.is_err() {
+        return false;
+    }
+
+    let version_req = version_req.unwrap();
+
+    let semversion = SemVersion::parse(version.as_str()).unwrap_or_else(|e| {
+        warn!(
+                    "Skipped, Can't parse the crate version: {}, {e}",
+                    version
+                );
+        SemVersion::new(0, 0, 0)
+    });
+
+    return version_req.matches(&semversion)
+}
+
+fn create_file_name_from_crate_name_and_version(crate_name: String, version: String) -> String {
+    return format!("{}-{}.crate", crate_name, version);
+}
+
+fn parse_crate_name_and_version_from_file_name(file_name: &str) -> Option<(&str, &str)> {
+    let crate_and_version = file_name.replace(".crate", "");
+
+    let position = crate_and_version.rfind("-");
+
+    if position.is_none() {
+        return None;
+    }
+
+    let position = position.unwrap();
+
+    let crate_name = &crate_and_version[0..position];
+    let version = &crate_and_version[position + 1..crate_and_version.len()];
+
+    return Some((crate_name, version));
+}
+
+fn build_hashset_from_local_deps(folder_with_already_download: String) -> HashMap<String, HashSet<String>> {
+    let mut map: HashMap<String, HashSet<String>> = HashMap::new();
+
+    std::fs::read_dir(folder_with_already_download)
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+
+        .map(|entry| entry.path().file_name())
+        .filter_map(|file_name| file_name)
+
+        .map(|file_name| file_name.to_str())
+        .filter_map(|file_name| file_name)
+
+        .filter(|file_name| file_name.ends_with(".crate"))
+        .filter_map(|file_name| parse_crate_name_and_version_from_file_name(file_name))
+
+        .for_each(|(crate_name, version)| {
+            if map.contains_key(crate_name) {
+                let mut versions: &mut HashSet<String> = map.get_mut(&crate_name).unwrap();
+                if !versions.contains(version) {
+                    (versions).insert(version.to_string());
+                }
+            } else {
+                let mut versions = HashSet::new();
+                versions.insert(version.to_string());
+                map.insert(crate_name.to_string(), versions);
+            }
+        });
+
+    return map;
+}
+
+async fn run(args: Cli) -> Result<()> {
+    let index = Index::new_cargo_default()?;
+
+    // Take the version requirement from args if exists,
+    // otherwise define the highest normal version as the version req.
+    let version_req = if let Some(version_req) = args.crate_version_req {
+        version_req
+    } else {
+        let krate = index
+            .crate_(&args.crate_name)
+            .ok_or_else(|| anyhow!(format!("Crate {} not found", args.crate_name)))?;
+        krate
+            .highest_normal_version()
+            .unwrap_or(krate.highest_version())
+            .version()
+            .to_owned()
+    };
+
+    // Collect the dependencies recursively.
+    let packages = collect_packages(
+        &index,
+        args.crate_name.to_owned(),
+        version_req,
+        &args.output,
+    )
+        .await?;
+
+    // Download all crates in parallel.
+    download_packages(packages).await?;
+
+    Ok(())
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -316,33 +459,7 @@ async fn main() -> Result<()> {
         Cli::parse()
     };
 
-    let index = Index::new_cargo_default()?;
+    run(args).await?;
 
-    // Take the version requirement from args if exists,
-    // otherwise define the highest normal version as the version req.
-    let version_req = if let Some(version_req) = args.crate_version_req {
-        version_req
-    } else {
-        let krate = index
-            .crate_(&args.crate_name)
-            .ok_or_else(|| anyhow!("Crate not found"))?;
-        krate
-            .highest_normal_version()
-            .unwrap_or(krate.highest_version())
-            .version()
-            .to_owned()
-    };
-
-    // Collect the dependencies recursively.
-    let packages = collect_packages(
-        &index,
-        args.crate_name.to_owned(),
-        version_req,
-        &args.output,
-    )
-    .await?;
-
-    // Download all crates in parallel.
-    download_packages(packages).await?;
     Ok(())
 }
