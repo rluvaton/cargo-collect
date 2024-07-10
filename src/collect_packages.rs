@@ -6,6 +6,7 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use itertools::Itertools;
 use tracing::{info, warn};
 use semver::{Version as SemVersion, VersionReq};
+use crate::CratesToDownload;
 use crate::spinners::progress_spinner;
 
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -115,12 +116,10 @@ async fn find_highest_requirement_version(
 
 pub async fn collect_packages(
     index: &Index,
-    crate_name: String,
-    crate_version_req: String,
+    worklist: &mut CratesToDownload,
     output: &Path,
 ) -> Result<HashSet<Package>> {
     // Collect all dependencies recursively.
-    let mut worklist = vec![(crate_name, crate_version_req)];
     let mut packages = HashSet::new();
     let index_config = index.index_config()?;
     let pb = progress_spinner()?;
