@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use crates_index::{Index, IndexConfig};
+use crates_index::{GitIndex, IndexConfig};
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use itertools::Itertools;
 use tracing::{info, warn};
@@ -27,7 +27,7 @@ impl Package {
 }
 
 async fn find_highest_requirement_version(
-    index: &Index,
+    index: &GitIndex,
     index_config: &IndexConfig,
     packages: &mut HashSet<Package>,
     folder_path: &Path,
@@ -115,7 +115,7 @@ async fn find_highest_requirement_version(
 }
 
 pub async fn collect_packages(
-    index: &Index,
+    index: &GitIndex,
     worklist: &mut CratesToDownload,
     output: &Path,
 ) -> Result<HashSet<Package>> {

@@ -10,7 +10,7 @@ mod parse_cargo_files;
 
 use std::fs;
 use anyhow::{anyhow, Result};
-use crates_index::Index;
+use crates_index::GitIndex;
 
 use crate::cli::Cli;
 use crate::collect_packages::collect_packages;
@@ -24,7 +24,7 @@ pub type CratesToDownload = Vec<(
 )>;
 
 async fn run(args: Cli) -> Result<()> {
-    let index = Index::new_cargo_default()?;
+    let index = GitIndex::new_cargo_default()?;
 
     let mut crates_to_download: CratesToDownload;
 
@@ -55,7 +55,7 @@ async fn run(args: Cli) -> Result<()> {
     Ok(())
 }
 
-fn get_crate_names_and_versions_from_cli_arg(index: &Index, args: Cli) -> Result<CratesToDownload> {
+fn get_crate_names_and_versions_from_cli_arg(index: &GitIndex, args: Cli) -> Result<CratesToDownload> {
     let crate_name = args.crate_name.expect("Must have crate name");
 
     // Take the version requirement from args if exists,
@@ -69,7 +69,7 @@ fn get_crate_names_and_versions_from_cli_arg(index: &Index, args: Cli) -> Result
     return Ok(vec![(crate_name.clone(), version_req)]);
 }
 
-fn get_version_requirements_for_crate(index: &Index, crate_name: String) -> Result<String> {
+fn get_version_requirements_for_crate(index: &GitIndex, crate_name: String) -> Result<String> {
 
     // Take the version requirement from args if exists,
     // otherwise define the highest normal version as the version req.
