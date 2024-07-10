@@ -16,7 +16,7 @@ pub struct CargoLockToml {
 
 
 #[derive(Debug, Deserialize, PartialEq, Clone, Builder)]
-struct Package {
+pub struct Package {
     #[allow(dead_code)]
     #[builder(setter(into, strip_option))]
     pub name: String,

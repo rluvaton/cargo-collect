@@ -108,8 +108,9 @@ fn get_crate_names_and_versions_from_cargo_lock_file(args: Cli) -> CratesToDownl
         .iter()
 
         // Only take the packages that are not local packages (local packages does not have source
-        .filter(|package| ! package.source.is_some())
-        .map(|package| (package.name.clone(), package.version.clone()))
+        .filter(|package| package.source.is_some())
+        // In lock file we want exact version
+        .map(|package| (package.name.clone(), "=".to_owned() + package.version.clone().as_str()))
         .collect();
 }
 
