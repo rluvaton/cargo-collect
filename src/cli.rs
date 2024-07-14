@@ -7,28 +7,75 @@ use tracing::subscriber::set_global_default as set_global_subscriber;
 use tracing_subscriber::fmt::time::SystemTime;
 use tracing_subscriber::FmtSubscriber;
 
-// TODO - look at https://stackoverflow.com/questions/76315540/how-do-i-require-one-of-the-two-clap-options
-//        but still need to allow for crate version req if crate name
+const EXAMPLES: &str = r#"
+Examples:
+    # Collect the dependencies of the crate `serde` with version requirement `^1.0.0`
+    # Save the crates files in "./deps" folder
+    ./cargo-collect --crate-name serde --crate-version-req "^1.0.0"
+
+    # Collect the dependencies of the crate `serde` with version requirement `=1.0.0`
+    # and put them in the folder `output`
+    ./cargo-collect --crate-name serde --crate-version-req "^1.0.0" --output output
+
+    # Collect all dependencies used by the local Cargo.toml file that match the versions specified.
+    # This support workspaces as well
+    # Useful for example when some python library (e.g. cryptography) have Rust implementation
+    # that is not published to crates.io and it's required in order to install the library
+    ./cargo-collect --cargo-file Cargo.toml
+
+    # Collect all dependencies used by the local Cargo.lock file that match the EXACT
+    # versions specified.
+    # Useful for example when some python library (e.g. cryptography) have Rust implementation
+    # that is not published to crates.io and it's required in order to install the library
+    ./cargo-collect --cargo-lock-file Cargo.toml
+"#;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None, after_help = EXAMPLES)]
 pub struct Cli {
     /// The crate name.
-    #[arg(short = 'n', long, conflicts_with_all(["cargo_lock_file", "cargo_file"]))]
-    // TODO - require if cargo_file or cargo_lock_file is not present
+    #[arg(
+        short = 'n',
+        long,
+        required_unless_present_any(["crate_name", "cargo_file"])
+    )]
     pub(crate) crate_name: Option<String>,
+
     /// The version requirement of the crate can be =1.0.0 or ^1.0 (see semver.org).
-    #[arg(short = 'v', long, conflicts_with_all(["cargo_lock_file", "cargo_file"]))]
+    #[arg(
+        short = 'v',
+        long,
+        conflicts_with_all(["cargo_lock_file", "cargo_file"])
+    )]
     pub(crate) crate_version_req: Option<String>,
+
     /// The output folder to put all crate files.
-    #[arg(short = 'o', long, default_value = "deps")]
+    #[arg(
+        short = 'o',
+        long,
+        default_value = "deps"
+    )]
     pub(crate) output: PathBuf,
 
-    #[arg(long, conflicts_with_all(["crate_name", "crate_version_req", "cargo_file"]))]
-    pub(crate) cargo_lock_file: Option<String>,
-
-    #[arg(long, conflicts_with_all(["crate_name", "crate_version_req", "cargo_lock_file"]))]
+    /// The Cargo.toml file to take dependencies from.
+    /// This will take the latest version that the version requirement
+    /// (This should be used when the crate is not published)
+    ///
+    /// Support workspaces
+    #[arg(
+        long,
+        required_unless_present_any(["crate_name", "cargo_lock_file"])
+    )]
     pub(crate) cargo_file: Option<String>,
+
+    /// The Cargo.lock file to take dependencies from.
+    /// This will take exact versions of the dependencies.
+    /// (This should be used when the crate is not published)
+    #[arg(
+        long,
+        required_unless_present_any(["crate_name", "cargo_file"])
+    )]
+    pub(crate) cargo_lock_file: Option<String>,
 }
 
 pub fn get_options() -> Cli {
@@ -51,5 +98,5 @@ pub fn get_options() -> Cli {
         Cli::parse()
     };
 
-    return args
+    return args;
 }

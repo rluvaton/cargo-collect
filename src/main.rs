@@ -37,9 +37,13 @@ async fn run(args: Cli) -> Result<()> {
     } else if args.cargo_lock_file.is_some() {
         crates_to_download = get_crate_names_and_versions_from_cargo_lock_file(args);
     } else {
-        panic!("Should not reach here");
+        unreachable!("Should not reach here");
     }
 
+    if !output_path.try_exists().expect("Failed to check directory creation") {
+        fs::create_dir(&output_path)
+            .expect(format!("Failed to create output directory at {:?}", output_path.as_path()).as_str());
+    }
 
     // Collect the dependencies recursively.
     let packages = collect_packages(

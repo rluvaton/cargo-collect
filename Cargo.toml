@@ -1,11 +1,11 @@
 [package]
 name = "cargo-collect"
-version = "0.1.1"
+version = "1.0.1"
 edition = "2021"
-repository = "https://gitlab.com/TalRoni/cargo-collect"
-homepage = "https://gitlab.com/TalRoni/cargo-collect"
+repository = "https://github.com/rluvaton/cargo-collect"
+homepage = "https://github.com/rluvaton/cargo-collect"
 description = "Cargo tool for download crate file and its dependencies recursively."
-authors = ["Tal Y Roni <tal.inon.16@gmail.com>"]
+authors = ["Tal Y Roni <tal.inon.16@gmail.com>", "Raz Luvaton"]
 readme = "README.md"
 license = "GPL-3.0"
 
@@ -34,4 +34,3 @@ derive_builder = "0.20.0"
 pretty_assertions = "1.4.0"
 tempdir = "0.3.7"
 
-[build-dependencies]
