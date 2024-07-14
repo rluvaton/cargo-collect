@@ -1,11 +1,12 @@
 use anyhow::{anyhow, Result};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use crates_index::{Index, IndexConfig};
+use crates_index::{GitIndex, IndexConfig};
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use itertools::Itertools;
 use tracing::{info, warn};
 use semver::{Version as SemVersion, VersionReq};
+use crate::CratesToDownload;
 use crate::spinners::progress_spinner;
 
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -26,7 +27,7 @@ impl Package {
 }
 
 async fn find_highest_requirement_version(
-    index: &Index,
+    index: &GitIndex,
     index_config: &IndexConfig,
     packages: &mut HashSet<Package>,
     folder_path: &Path,
@@ -114,13 +115,11 @@ async fn find_highest_requirement_version(
 }
 
 pub async fn collect_packages(
-    index: &Index,
-    crate_name: String,
-    crate_version_req: String,
+    index: &GitIndex,
+    worklist: &mut CratesToDownload,
     output: &Path,
 ) -> Result<HashSet<Package>> {
     // Collect all dependencies recursively.
-    let mut worklist = vec![(crate_name, crate_version_req)];
     let mut packages = HashSet::new();
     let index_config = index.index_config()?;
     let pb = progress_spinner()?;
