@@ -15,7 +15,7 @@ Examples:
 
     # Collect the dependencies of the crate `serde` with version requirement `=1.0.0`
     # and put them in the folder `output`
-    ./cargo-collect --crate-name serde --crate-version-req "^1.0.0" --output output
+    ./cargo-collect --crate-name serde --crate-version-req "=1.0.0" --output output
 
     # Collect all dependencies used by the local Cargo.toml file that match the versions specified.
     # This support workspaces as well
@@ -27,7 +27,7 @@ Examples:
     # versions specified.
     # Useful for example when some python library (e.g. cryptography) have Rust implementation
     # that is not published to crates.io and it's required in order to install the library
-    ./cargo-collect --cargo-lock-file Cargo.toml
+    ./cargo-collect --cargo-lock-file Cargo.lock
 "#;
 
 #[derive(Parser, Debug)]
