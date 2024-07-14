@@ -82,6 +82,7 @@ pub struct Cli {
     /// Use this when cant find crate version that you know exists
     #[arg(
         short = 'u',
+        long,
         default_value = "false"
     )]
     pub(crate) update_index: bool,

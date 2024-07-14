@@ -27,7 +27,7 @@ async fn run(args: Cli) -> Result<()> {
 
     if args.update_index {
         println!("Updating index...");
-        index.update().await?;
+        index.update()?;
         println!("Index updated.");
     }
 
