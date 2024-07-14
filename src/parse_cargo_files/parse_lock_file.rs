@@ -11,7 +11,7 @@ pub struct CargoLockToml {
     #[builder(default = "3")]
     pub version: u8,
     #[allow(dead_code)] // Disable dead code warning for the entire struct
-    pub package: Vec<Package>,
+    pub package: Option<Vec<Package>>,
 }
 
 
@@ -82,7 +82,7 @@ version = 3
 
         let cargo = parse_cargo_lock_file(cargo_lock);
 
-        assert_eq!(cargo.package.len(), 0);
+        assert_eq!(cargo.package, None);
     }
 
     #[test]
@@ -107,7 +107,7 @@ checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
                 .build().unwrap()
         ];
 
-        assert_eq!(cargo.package, expected_packages);
+        assert_eq!(cargo.package.unwrap(), expected_packages);
 
     }
 
@@ -147,7 +147,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
                 .build().unwrap()
         ];
 
-        assert_eq!(cargo.package, expected_packages);
+        assert_eq!(cargo.package.unwrap(), expected_packages);
     }
 
     #[test]
@@ -191,7 +191,7 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
                 .build().unwrap()
         ];
 
-        assert_eq!(cargo.package, expected_packages);
+        assert_eq!(cargo.package.unwrap(), expected_packages);
     }
 
     #[test]
@@ -208,11 +208,11 @@ version = "0.1.0"
         let expected_packages = vec![
             PackageBuilder::default()
                 .name("cryptography-x509")
-                .version("0.7.20")
+                .version("0.1.0")
                 .build().unwrap(),
         ];
 
-        assert_eq!(cargo.package, expected_packages);
+        assert_eq!(cargo.package.unwrap(), expected_packages);
     }
 
     #[test]
@@ -247,7 +247,7 @@ version = "0.1.0"
                 .build().unwrap(),
         ];
 
-        assert_eq!(cargo.package, expected_packages);
+        assert_eq!(cargo.package.unwrap(), expected_packages);
     }
 }
 

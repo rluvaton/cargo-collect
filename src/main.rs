@@ -5,7 +5,6 @@ mod cli;
 mod collect_packages;
 mod download_packages;
 mod spinners;
-mod parse_lock_file;
 mod parse_cargo_files;
 
 use std::fs;
@@ -107,8 +106,13 @@ fn get_crate_names_and_versions_from_cargo_lock_file(args: Cli) -> CratesToDownl
 
     let deps = parse_cargo_lock_file(cargo_file_content);
 
+    if deps.package.is_none() {
+        return vec![];
+    }
+
     return deps
         .package
+        .unwrap()
         .iter()
 
         // Only take the packages that are not local packages (local packages does not have source
