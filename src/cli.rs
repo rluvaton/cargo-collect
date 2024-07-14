@@ -76,6 +76,15 @@ pub struct Cli {
         required_unless_present_any(["crate_name", "cargo_file"])
     )]
     pub(crate) cargo_lock_file: Option<String>,
+
+    /// Whether to update the local index of crates.io.
+    ///
+    /// Use this when cant find crate version that you know exists
+    #[arg(
+        short = 'u',
+        default_value = "false"
+    )]
+    pub(crate) update_index: bool,
 }
 
 pub fn get_options() -> Cli {
