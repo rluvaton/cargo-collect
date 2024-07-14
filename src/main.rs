@@ -23,7 +23,13 @@ pub type CratesToDownload = Vec<(
 )>;
 
 async fn run(args: Cli) -> Result<()> {
-    let index = GitIndex::new_cargo_default()?;
+    let mut index = GitIndex::new_cargo_default()?;
+
+    if args.update_index {
+        println!("Updating index...");
+        index.update()?;
+        println!("Index updated.");
+    }
 
     let mut crates_to_download: CratesToDownload;
 

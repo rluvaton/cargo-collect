@@ -63,6 +63,12 @@ Options:
 
       --cargo-lock-file <CARGO_LOCK_FILE>
           The Cargo.lock file to take dependencies from. This will take exact versions of the dependencies. (This should be used when the crate is not published)
+          
+  -u, --update-index
+          Whether to update the local index of crates.io.
+          
+          Use this when cant find crate version that you know exists
+
 
   -h, --help
           Print help (see a summary with '-h')
