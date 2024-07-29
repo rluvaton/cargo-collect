@@ -37,7 +37,7 @@ pub struct Cli {
     #[arg(
         short = 'n',
         long,
-        required_unless_present_any(["crate_name", "cargo_file"])
+        required_unless_present_any(["cargo_lock_file", "cargo_file"])
     )]
     pub(crate) crate_name: Option<String>,
 
@@ -110,3 +110,47 @@ pub fn get_options() -> Cli {
 
     return args;
 }
+
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn parse_successfully_for_crate_name() {
+        let result = Cli::try_parse_from(vec![
+            "collect",
+            "--crate-name",
+            "serde",
+        ].iter()).expect("Valid arguments");
+
+        assert_eq!(result.crate_name, Some("serde".to_string()));
+    }
+
+    #[test]
+    fn parse_successfully_for_lock_file() {
+        let result = Cli::try_parse_from(vec![
+            "collect",
+            "--cargo-lock-file",
+            "./Cargo.lock",
+        ].iter()).expect("Valid arguments");
+
+        assert_eq!(result.cargo_lock_file, Some("./Cargo.lock".to_string()));
+    }
+
+    #[test]
+    fn parse_successfully_for_cargo_file() {
+        let result = Cli::try_parse_from(vec![
+            "collect",
+            "--cargo-file",
+            "./Cargo.toml",
+        ].iter()).expect("Valid arguments");
+
+        assert_eq!(result.cargo_file, Some("./Cargo.toml".to_string()));
+    }
+}
+
+
+
